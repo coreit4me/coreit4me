@@ -1,6 +1,7 @@
+// The bug is described in a 100 x 100 space (head pointing up), then sampled onto a character grid.
+// This file runs both in Node (require) and in the browser (served at /bug.js as window.HackerBug).
+(function (root) {
 'use strict';
-
-// The bug is described in a 100 x 100 space, then sampled onto a character grid.
 
 const BLOBS = [
   { cx: 50, cy: 25, rx: 10, ry: 8 }, // head
@@ -17,6 +18,7 @@ const LIMBS = [
 ];
 
 const LIMB_WIDTH = 2.4;
+const LEG_SWING = 6; // how far leg tips swing back and forth while walking
 
 function inEllipse(x, y, e) {
   const dx = (x - e.cx) / e.rx;
@@ -32,29 +34,39 @@ function distToSegment(px, py, [ax, ay], [bx, by]) {
   return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
 }
 
-function onLimb(x, y) {
-  for (const mirror of [false, true]) {
-    for (const limb of LIMBS) {
+// Move a limb for walking. Legs use a tripod gait: front and back legs on one side
+// move together with the middle leg on the other side. phase 0 is the resting pose.
+function poseLimb(limb, index, side, phase) {
+  const swing = index === 0
+    ? 0.4 * Math.sin(phase * 0.7) // antennae just twitch
+    : Math.sin(phase + (index + side) * Math.PI);
+  return limb.map(([x, y], j) => {
+    const dy = LEG_SWING * swing * (j / (limb.length - 1));
+    return [side ? 100 - x : x, y + dy];
+  });
+}
+
+function onLimb(x, y, phase) {
+  for (const side of [0, 1]) {
+    for (let li = 0; li < LIMBS.length; li++) {
+      const limb = poseLimb(LIMBS[li], li, side, phase);
       for (let i = 0; i + 1 < limb.length; i++) {
-        let a = limb[i];
-        let b = limb[i + 1];
-        if (mirror) {
-          a = [100 - a[0], a[1]];
-          b = [100 - b[0], b[1]];
-        }
-        if (distToSegment(x, y, a, b) <= LIMB_WIDTH) return true;
+        if (distToSegment(x, y, limb[i], limb[i + 1]) <= LIMB_WIDTH) return true;
       }
     }
   }
   return false;
 }
 
-/** Whether a point in the 100x100 space is part of the bug. */
-function inside(x, y) {
+/**
+ * Whether a point in the 100x100 space is part of the bug.
+ * phase animates the legs (radians of walk cycle); 0 is the resting pose.
+ */
+function inside(x, y, phase = 0) {
   // thin split down the back, like beetle wings
   if (y > 44 && y < 82 && Math.abs(x - 50) < 0.7) return false;
   if (BLOBS.some((e) => inEllipse(x, y, e))) return true;
-  return onLimb(x, y);
+  return onLimb(x, y, phase);
 }
 
 /** Small seeded PRNG (mulberry32) so tests can get repeatable output. */
@@ -112,4 +124,7 @@ function toText(art) {
   return art.grid.map((line) => line.map(([ch]) => ch).join('')).join('\n');
 }
 
-module.exports = { inside, buildArt, toText, makeRandom, LIMITS };
+const api = { inside, buildArt, toText, makeRandom, LIMITS };
+if (typeof module === 'object' && module.exports) module.exports = api;
+else root.HackerBug = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);

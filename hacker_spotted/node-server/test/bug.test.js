@@ -62,3 +62,24 @@ test('the bug covers a sensible share of the grid', () => {
   const share = lit / cells.length;
   assert.ok(share > 0.15 && share < 0.5, `share was ${share}`);
 });
+
+test('walking moves the legs but not the body', () => {
+  const pts = [];
+  for (let y = 0; y <= 100; y += 1) for (let x = 0; x <= 100; x += 1) pts.push([x, y]);
+  const changed = pts.filter(([x, y]) => inside(x, y, 0) !== inside(x, y, Math.PI / 2));
+  assert.ok(changed.length > 20, 'legs should move');
+  for (const [x, y] of changed) {
+    const inBody = ((x - 50) / 21) ** 2 + ((y - 61) / 24) ** 2 < 0.8;
+    assert.ok(!inBody, `body point (${x}, ${y}) changed`);
+  }
+});
+
+test('the walk cycle repeats every 2*pi for the legs', () => {
+  // middle-left leg tip area
+  for (const [x, y] of [[12, 55], [15, 52], [21, 90], [16, 31]]) {
+    const a = inside(x, y, 1);
+    const b = inside(x, y, 1 + 2 * Math.PI);
+    // antennae have a slower twitch, so only check legs
+    assert.equal(a, b, `(${x}, ${y})`);
+  }
+});

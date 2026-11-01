@@ -62,3 +62,21 @@ test('unknown routes 404 and non-GET is 405', async () => {
   assert.equal((await fetch(base + '/nope')).status, 404);
   assert.equal((await fetch(base + '/', { method: 'POST' })).status, 405);
 });
+
+test('GET /bug.js serves the shape code for the browser', async () => {
+  const res = await fetch(base + '/bug.js');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /javascript/);
+  const code = await res.text();
+  // run it the way a browser would and check it exposes HackerBug
+  const sandbox = {};
+  new Function('globalThis', 'module', code)(sandbox, undefined);
+  assert.equal(typeof sandbox.HackerBug.inside, 'function');
+  assert.ok(sandbox.HackerBug.inside(50, 60.1 + 5, 0) || sandbox.HackerBug.inside(40, 60, 0));
+});
+
+test('the page loads /bug.js and draws on a canvas', async () => {
+  const html = await (await fetch(base + '/')).text();
+  assert.match(html, /<script src="\/bug.js"><\/script>/);
+  assert.match(html, /<canvas/);
+});

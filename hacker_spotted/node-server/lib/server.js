@@ -6,6 +6,7 @@ const path = require('node:path');
 const { buildArt, toText } = require('./bug');
 
 const PAGE = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'));
+const BUG_JS = fs.readFileSync(path.join(__dirname, 'bug.js'));
 
 function sendJSON(res, status, body) {
   res.writeHead(status, {
@@ -20,6 +21,7 @@ function sendJSON(res, status, body) {
  *
  * Routes:
  *   GET /                         the mobile-friendly page
+ *   GET /bug.js                   the bug shape code, for the browser
  *   GET /api/art?cols=80&seed=1   art as JSON
  *   GET /api/art.txt?cols=80      art as plain text
  *   GET /health                   {"status":"ok"}
@@ -36,6 +38,11 @@ function createServer() {
     if (url.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(PAGE);
+    }
+
+    if (url.pathname === '/bug.js') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+      return res.end(BUG_JS);
     }
 
     if (url.pathname === '/health') {
