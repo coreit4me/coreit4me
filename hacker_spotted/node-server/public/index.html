@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Hacker Spotted</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+  pre {
+    margin: 0;
+    font-family: "Courier New", Consolas, Menlo, monospace;
+    font-weight: bold;
+    line-height: 1.1;
+    color: #39ff14;
+    user-select: none; -webkit-user-select: none;
+  }
+  .l1 { color: #1fa80f; text-shadow: 0 0 2px #1fa80f; }
+  .l2 { color: #39ff14; text-shadow: 0 0 4px #39ff14; }
+  .l3 { color: #c8ffb8; text-shadow: 0 0 6px #39ff14, 0 0 12px #39ff14; }
+  .l4 { color: #0b4d06; }
+  #hint {
+    position: fixed; bottom: calc(10px + env(safe-area-inset-bottom)); left: 0; right: 0;
+    text-align: center; font: 12px monospace; color: #1fa80f; opacity: .6;
+  }
+</style>
+</head>
+<body>
+<pre id="art" aria-label="A bug drawn out of green digits"></pre>
+<div id="hint">tap to regenerate</div>
+<script>
+  const pre = document.getElementById('art');
+  const CHAR_RATIO = 0.6; // monospace glyph width / font size
+  const LINE = 1.1;
+  let spans = [];
+  let loading = false;
+
+  // Pick a grid size and font size that fill the screen without being unreadably small.
+  function layout() {
+    const w = window.innerWidth * 0.96;
+    const h = window.innerHeight * 0.92;
+    const minFont = 7;
+    let cols = Math.floor(w / (minFont * CHAR_RATIO));
+    cols = Math.max(30, Math.min(100, cols));
+    const rows = Math.round(cols * 0.55);
+    const font = Math.min(w / (cols * CHAR_RATIO), h / (rows * LINE));
+    return { cols, font };
+  }
+
+  async function load() {
+    if (loading) return;
+    loading = true;
+    try {
+      const { cols, font } = layout();
+      const res = await fetch('/api/art?cols=' + cols);
+      const art = await res.json();
+      pre.style.fontSize = font + 'px';
+      const frag = document.createDocumentFragment();
+      for (const line of art.grid) {
+        for (const [ch, level] of line) {
+          if (level === 0) { frag.append(ch); continue; }
+          const s = document.createElement('span');
+          s.className = 'l' + level;
+          s.textContent = ch;
+          frag.append(s);
+        }
+        frag.append('\n');
+      }
+      pre.replaceChildren(frag);
+      spans = pre.querySelectorAll('span');
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Flicker the digits like a live data stream.
+  setInterval(() => {
+    if (!spans.length) return;
+    for (let i = 0; i < 50; i++) {
+      spans[Math.floor(Math.random() * spans.length)].textContent = Math.floor(Math.random() * 10);
+    }
+  }, 60);
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(load, 250);
+  });
+  document.body.addEventListener('click', load);
+  load();
+</script>
+</body>
+</html>
